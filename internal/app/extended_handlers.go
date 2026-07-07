@@ -109,6 +109,9 @@ func (a *App) saveUpload(src io.Reader, requestID int64, name string) error {
 	if a.cfg.UploadStorage == "sftp" {
 		return a.saveUploadSFTP(src, requestID, name)
 	}
+	if a.cfg.UploadStorage == "ftp" || a.cfg.UploadStorage == "ftps" {
+		return a.saveUploadFTP(src, requestID, name)
+	}
 	dir := filepath.Join(a.localUploadRoot(), fmt.Sprintf("%d", requestID))
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
@@ -125,6 +128,9 @@ func (a *App) saveUpload(src io.Reader, requestID int64, name string) error {
 func (a *App) serveUpload(w http.ResponseWriter, r *http.Request, rel string) error {
 	if a.cfg.UploadStorage == "sftp" {
 		return a.serveUploadSFTP(w, r, rel)
+	}
+	if a.cfg.UploadStorage == "ftp" || a.cfg.UploadStorage == "ftps" {
+		return a.serveUploadFTP(w, r, rel)
 	}
 	cleanRel := filepath.Clean(rel)
 	if cleanRel == "." || strings.HasPrefix(cleanRel, "..") || filepath.IsAbs(cleanRel) {

@@ -18,6 +18,12 @@ type Config struct {
 	SFTPUser      string
 	SFTPPassword  string
 	SFTPDir       string
+	FTPHost       string
+	FTPPort       string
+	FTPUser       string
+	FTPPassword   string
+	FTPDir        string
+	FTPTLS        bool
 }
 
 func Load() Config {
@@ -33,6 +39,12 @@ func Load() Config {
 		SFTPUser:      env("SFTP_USER", ""),
 		SFTPPassword:  env("SFTP_PASSWORD", ""),
 		SFTPDir:       env("SFTP_DIR", "/uploads"),
+		FTPHost:       env("FTP_HOST", ""),
+		FTPPort:       env("FTP_PORT", "21"),
+		FTPUser:       env("FTP_USER", ""),
+		FTPPassword:   env("FTP_PASSWORD", ""),
+		FTPDir:        env("FTP_DIR", "/uploads"),
+		FTPTLS:        strings.ToLower(env("FTP_TLS", "false")) == "true",
 	}
 }
 

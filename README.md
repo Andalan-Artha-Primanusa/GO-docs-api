@@ -46,6 +46,20 @@ SFTP_DIR=/E-Ticketing/uploads
 
 Dengan mode ini backend langsung mengirim file ke NAS via SFTP tanpa `mount`.
 
+Jika NAS hanya menyediakan FTP/FTPS dan bukan SFTP, aktifkan FTP di NAS lalu gunakan mode FTP:
+
+```env
+UPLOAD_STORAGE=ftp
+FTP_HOST=160.19.165.217
+FTP_PORT=21
+FTP_USER=artha
+FTP_PASSWORD=OT6gfpTp
+FTP_DIR=/E-Ticketing/uploads
+FTP_TLS=false
+```
+
+Pastikan folder `uploads` sudah dibuat di dalam shared folder `E-Ticketing`.
+
 4. Install dependensi dan jalankan migrasi:
 
 ```powershell

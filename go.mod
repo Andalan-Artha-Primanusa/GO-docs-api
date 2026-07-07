@@ -1,9 +1,10 @@
 module rbac-request-engine
 
-go 1.25.0
+go 1.26
 
 require (
 	github.com/go-sql-driver/mysql v1.9.0
+	github.com/jlaffaye/ftp v0.2.1
 	github.com/pkg/sftp v1.13.10
 	golang.org/x/crypto v0.53.0
 )
