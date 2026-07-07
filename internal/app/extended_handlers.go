@@ -75,14 +75,19 @@ func (a *App) uploadAttachment(w http.ResponseWriter, r *http.Request) {
 		sourceType = "form"
 	}
 	sourceID, _ := strconv.ParseInt(r.FormValue("source_id"), 10, 64)
-	name := fmt.Sprintf("%d_%s", time.Now().UnixNano(), sanitizeFilename(header.Filename))
-	if err := a.saveUpload(file, requestID, name); err != nil {
-		log.Printf("upload failed request_id=%d name=%s storage=%s err=%v", requestID, name, a.cfg.UploadStorage, err)
+	ownerFolder, err := a.uploadOwnerFolder(currentUserID(r))
+	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	log.Printf("upload saved request_id=%d name=%s storage=%s", requestID, name, a.cfg.UploadStorage)
-	fileURL := "/uploads/" + fmt.Sprintf("%d/%s", requestID, name)
+	name := fmt.Sprintf("%d_%s", time.Now().UnixNano(), sanitizeFilename(header.Filename))
+	if err := a.saveUpload(file, ownerFolder, name); err != nil {
+		log.Printf("upload failed request_id=%d folder=%s name=%s storage=%s err=%v", requestID, ownerFolder, name, a.cfg.UploadStorage, err)
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	log.Printf("upload saved request_id=%d folder=%s name=%s storage=%s", requestID, ownerFolder, name, a.cfg.UploadStorage)
+	fileURL := "/uploads/" + fmt.Sprintf("%s/%s", ownerFolder, name)
 	res, err := a.db.Exec(`INSERT INTO attachments (request_id, source_type, source_id, file_url) VALUES (?, ?, ?, ?)`, requestID, sourceType, nullableID(sourceID), fileURL)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -108,14 +113,14 @@ func (a *App) localUploadRoot() string {
 	return a.cfg.UploadDir
 }
 
-func (a *App) saveUpload(src io.Reader, requestID int64, name string) error {
+func (a *App) saveUpload(src io.Reader, folder string, name string) error {
 	if a.cfg.UploadStorage == "sftp" {
-		return a.saveUploadSFTP(src, requestID, name)
+		return a.saveUploadSFTP(src, folder, name)
 	}
 	if a.cfg.UploadStorage == "ftp" || a.cfg.UploadStorage == "ftps" {
-		return a.saveUploadFTP(src, requestID, name)
+		return a.saveUploadFTP(src, folder, name)
 	}
-	dir := filepath.Join(a.localUploadRoot(), fmt.Sprintf("%d", requestID))
+	dir := filepath.Join(a.localUploadRoot(), folder)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
@@ -147,6 +152,28 @@ func sanitizeFilename(name string) string {
 	name = filepath.Base(name)
 	replacer := strings.NewReplacer(" ", "_", "\\", "_", "/", "_", ":", "_")
 	return replacer.Replace(name)
+}
+
+func sanitizePathSegment(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "unknown_user"
+	}
+	value = sanitizeFilename(value)
+	replacer := strings.NewReplacer("@", "_at_", ".", "_", "#", "_", "?", "_", "&", "_", "%", "_")
+	value = replacer.Replace(value)
+	for strings.Contains(value, "__") {
+		value = strings.ReplaceAll(value, "__", "_")
+	}
+	return strings.Trim(value, "_")
+}
+
+func (a *App) uploadOwnerFolder(userID int64) (string, error) {
+	var name string
+	if err := a.db.QueryRow(`SELECT name FROM users WHERE id = ?`, userID).Scan(&name); err != nil {
+		return "", err
+	}
+	return sanitizePathSegment(name), nil
 }
 
 func nullableID(id int64) any {

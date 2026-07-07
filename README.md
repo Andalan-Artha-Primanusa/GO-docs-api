@@ -58,7 +58,7 @@ FTP_DIR=/E-Ticketing/uploads
 FTP_TLS=false
 ```
 
-Pastikan folder `uploads` sudah dibuat di dalam shared folder `E-Ticketing`.
+Pastikan folder `uploads` sudah dibuat di dalam shared folder `E-Ticketing`. File akan disimpan per nama user, misalnya `E-Ticketing/uploads/Super_Admin/nama_file.png`.
 
 4. Install dependensi dan jalankan migrasi:
 

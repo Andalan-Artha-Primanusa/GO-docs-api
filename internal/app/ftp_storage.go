@@ -143,14 +143,14 @@ func (a *App) ftpRoot() string {
 	return a.cfg.FTPDir
 }
 
-func (a *App) saveUploadFTP(src io.Reader, requestID int64, name string) error {
+func (a *App) saveUploadFTP(src io.Reader, folder string, name string) error {
 	client, err := a.newFTPClient()
 	if err != nil {
 		return err
 	}
 	defer client.close()
 
-	dir := path.Join(a.ftpRoot(), fmt.Sprintf("%d", requestID))
+	dir := path.Join(a.ftpRoot(), folder)
 	if err := makeFTPDirAll(client, dir); err != nil {
 		return err
 	}

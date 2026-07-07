@@ -50,14 +50,14 @@ func (a *App) sftpRoot() string {
 	return a.cfg.SFTPDir
 }
 
-func (a *App) saveUploadSFTP(src io.Reader, requestID int64, name string) error {
+func (a *App) saveUploadSFTP(src io.Reader, folder string, name string) error {
 	client, cleanup, err := a.newSFTPClient()
 	if err != nil {
 		return err
 	}
 	defer cleanup()
 
-	dir := path.Join(a.sftpRoot(), fmt.Sprintf("%d", requestID))
+	dir := path.Join(a.sftpRoot(), folder)
 	if err := client.MkdirAll(dir); err != nil {
 		return err
 	}
