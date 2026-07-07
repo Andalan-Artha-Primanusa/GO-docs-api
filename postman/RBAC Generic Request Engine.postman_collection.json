@@ -1,0 +1,706 @@
+{
+  "info": {
+    "_postman_id": "b01755e1-d8a0-4a95-a45a-43fa991f750d",
+    "name": "RBAC Generic Request Engine API",
+    "description": "Collection untuk backend Go + MySQL RBAC Generic Request Engine. Jalankan login terlebih dahulu; token otomatis disimpan ke variable `token`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "GET Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"User Baru\",\n  \"email\": \"userbaru@example.com\",\n  \"password\": \"password123\",\n  \"department_id\": 5,\n  \"phone\": \"081234567890\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/register",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Login (Semua Role)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.data && json.data.token) pm.environment.set('token', json.data.token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{login_email}}\",\n  \"password\": \"{{login_password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Me",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "me"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "User, Role, Permission",
+      "item": [
+        {
+          "name": "List Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/users",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "users"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Activate User",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/users/{{user_id}}/activate",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "{{user_id}}",
+                "activate"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Set User Roles",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role_ids\": [5]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/users/{{user_id}}/roles",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "{{user_id}}",
+                "roles"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Roles",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/roles",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "roles"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Role",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"procurement\",\n  \"description\": \"Admin procurement\",\n  \"permission_ids\": [5, 6]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/roles",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "roles"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Permissions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/permissions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "permissions"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Request Type & PIC",
+      "item": [
+        {
+          "name": "List Request Types",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/request-types",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "request-types"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Request Type - Reimburse",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.data && json.data.id) pm.environment.set('request_type_id', json.data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Reimburse\",\n  \"department_owner_id\": 2,\n  \"is_active\": true,\n  \"form_schema\": {\n    \"fields\": [\n      {\"key\": \"title\", \"label\": \"Judul\", \"type\": \"text\", \"required\": true},\n      {\"key\": \"amount\", \"label\": \"Nominal\", \"type\": \"number\", \"required\": true},\n      {\"key\": \"description\", \"label\": \"Keterangan\", \"type\": \"textarea\", \"required\": false}\n    ]\n  },\n  \"approval_chain\": [\n    {\"level\": 1, \"type\": \"manager\"},\n    {\"level\": 2, \"type\": \"role\", \"role\": \"finance\"}\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/request-types",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "request-types"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Request Type - Ticketing Tanpa Approval",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ticketing Masalah IT\",\n  \"department_owner_id\": 1,\n  \"is_active\": true,\n  \"form_schema\": {\n    \"fields\": [\n      {\"key\": \"subject\", \"label\": \"Subjek\", \"type\": \"text\", \"required\": true},\n      {\"key\": \"priority\", \"label\": \"Prioritas\", \"type\": \"select\", \"options\": [\"low\", \"medium\", \"high\"], \"required\": true},\n      {\"key\": \"problem\", \"label\": \"Detail Masalah\", \"type\": \"textarea\", \"required\": true}\n    ]\n  },\n  \"approval_chain\": []\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/request-types",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "request-types"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Request Type",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Reimburse Updated\",\n  \"department_owner_id\": 2,\n  \"is_active\": true,\n  \"form_schema\": {\n    \"fields\": [\n      {\"key\": \"title\", \"label\": \"Judul\", \"type\": \"text\", \"required\": true},\n      {\"key\": \"amount\", \"label\": \"Nominal\", \"type\": \"number\", \"required\": true},\n      {\"key\": \"receipt_number\", \"label\": \"Nomor Kwitansi\", \"type\": \"text\", \"required\": false}\n    ]\n  },\n  \"approval_chain\": [\n    {\"level\": 1, \"type\": \"manager\"},\n    {\"level\": 2, \"type\": \"role\", \"role\": \"finance\"}\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/request-types/{{request_type_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "request-types",
+                "{{request_type_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Assign PICs",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_ids\": [1, 2]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/request-types/{{request_type_id}}/pics",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "request-types",
+                "{{request_type_id}}",
+                "pics"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Requests",
+      "item": [
+        {
+          "name": "Create Request",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.data && json.data.id) pm.environment.set('request_id', json.data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"request_type_id\": {{request_type_id}},\n  \"fields\": {\n    \"title\": \"Reimburse transport meeting client\",\n    \"amount\": 250000,\n    \"description\": \"Biaya transport meeting tanggal 3 Juli\",\n    \"receipt_number\": \"INV-TRX-001\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/requests",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "requests"
+              ]
+            }
+          }
+        },
+        {
+          "name": "My Requests",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/requests/mine",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "requests",
+                "mine"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Assigned Requests",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/requests/assigned",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "requests",
+                "assigned"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Request Detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/requests/{{request_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "requests",
+                "{{request_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Approve Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"approve\",\n  \"note\": \"Disetujui, dokumen lengkap\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/requests/{{request_id}}/approve",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "requests",
+                "{{request_id}}",
+                "approve"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Reject Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"reject\",\n  \"note\": \"Ditolak karena lampiran belum lengkap\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/requests/{{request_id}}/approve",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "requests",
+                "{{request_id}}",
+                "approve"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Add Status Progress",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stage_number\": 3,\n  \"status_text\": \"Dana dijadwalkan transfer\",\n  \"note\": \"Estimasi transfer hari Jumat\",\n  \"mark_done\": false\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/requests/{{request_id}}/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "requests",
+                "{{request_id}}",
+                "status"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Add Comment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"Mohon update progres pengajuan ini. Terima kasih.\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/requests/{{request_id}}/comments",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "requests",
+                "{{request_id}}",
+                "comments"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Give Result",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"result_text\": \"Reimburse sudah diproses dan dana telah ditransfer ke rekening karyawan.\",\n  \"file_url\": \"https://example.com/bukti-transfer.pdf\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/requests/{{request_id}}/result",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "requests",
+                "{{request_id}}",
+                "result"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Dashboard & Notification",
+      "item": [
+        {
+          "name": "Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/dashboard",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "dashboard"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Notifications",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/notifications",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "notifications"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Read Notification",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/notifications/{{notification_id}}/read",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "{{notification_id}}",
+                "read"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
