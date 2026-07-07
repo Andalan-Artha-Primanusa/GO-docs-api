@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -76,9 +77,11 @@ func (a *App) uploadAttachment(w http.ResponseWriter, r *http.Request) {
 	sourceID, _ := strconv.ParseInt(r.FormValue("source_id"), 10, 64)
 	name := fmt.Sprintf("%d_%s", time.Now().UnixNano(), sanitizeFilename(header.Filename))
 	if err := a.saveUpload(file, requestID, name); err != nil {
+		log.Printf("upload failed request_id=%d name=%s storage=%s err=%v", requestID, name, a.cfg.UploadStorage, err)
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	log.Printf("upload saved request_id=%d name=%s storage=%s", requestID, name, a.cfg.UploadStorage)
 	fileURL := "/uploads/" + fmt.Sprintf("%d/%s", requestID, name)
 	res, err := a.db.Exec(`INSERT INTO attachments (request_id, source_type, source_id, file_url) VALUES (?, ?, ?, ?)`, requestID, sourceType, nullableID(sourceID), fileURL)
 	if err != nil {

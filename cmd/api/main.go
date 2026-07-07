@@ -45,6 +45,7 @@ func main() {
 	}
 
 	srv := app.New(db, cfg)
+	log.Printf("upload storage=%s upload_dir=%s ftp_host=%s ftp_dir=%s", cfg.UploadStorage, cfg.UploadDir, cfg.FTPHost, cfg.FTPDir)
 	log.Printf("api listening on :%s", cfg.Port)
 	log.Fatal(http.ListenAndServe(":"+cfg.Port, srv.Routes()))
 }
