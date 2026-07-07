@@ -33,6 +33,19 @@ UPLOAD_DIR=\\192.168.1.10\TicketShare\Uploads
 
 URL file di API tetap memakai format `/uploads/{request_id}/{nama_file}`, tetapi file fisiknya tersimpan di folder NAS.
 
+Jika server tidak mengizinkan mount SMB/CIFS, gunakan mode SFTP:
+
+```env
+UPLOAD_STORAGE=sftp
+SFTP_HOST=160.19.165.217
+SFTP_PORT=22
+SFTP_USER=artha
+SFTP_PASSWORD=OT6gfpTp
+SFTP_DIR=/E-Ticketing/uploads
+```
+
+Dengan mode ini backend langsung mengirim file ke NAS via SFTP tanpa `mount`.
+
 4. Install dependensi dan jalankan migrasi:
 
 ```powershell

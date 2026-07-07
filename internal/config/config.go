@@ -8,19 +8,31 @@ import (
 )
 
 type Config struct {
-	Port      string
-	MySQLDSN  string
-	JWTSecret string
-	UploadDir string
+	Port          string
+	MySQLDSN      string
+	JWTSecret     string
+	UploadDir     string
+	UploadStorage string
+	SFTPHost      string
+	SFTPPort      string
+	SFTPUser      string
+	SFTPPassword  string
+	SFTPDir       string
 }
 
 func Load() Config {
 	loadDotEnv(findDotEnv())
 	return Config{
-		Port:      env("APP_PORT", "3000"),
-		MySQLDSN:  env("MYSQL_DSN", "root:password@tcp(127.0.0.1:3306)/rbac_request_engine?parseTime=true&multiStatements=true"),
-		JWTSecret: env("APP_JWT_SECRET", "dev-secret-change-me"),
-		UploadDir: env("UPLOAD_DIR", "uploads"),
+		Port:          env("APP_PORT", "3000"),
+		MySQLDSN:      env("MYSQL_DSN", "root:password@tcp(127.0.0.1:3306)/rbac_request_engine?parseTime=true&multiStatements=true"),
+		JWTSecret:     env("APP_JWT_SECRET", "dev-secret-change-me"),
+		UploadDir:     env("UPLOAD_DIR", "uploads"),
+		UploadStorage: strings.ToLower(env("UPLOAD_STORAGE", "local")),
+		SFTPHost:      env("SFTP_HOST", ""),
+		SFTPPort:      env("SFTP_PORT", "22"),
+		SFTPUser:      env("SFTP_USER", ""),
+		SFTPPassword:  env("SFTP_PASSWORD", ""),
+		SFTPDir:       env("SFTP_DIR", "/uploads"),
 	}
 }
 

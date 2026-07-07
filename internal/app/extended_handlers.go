@@ -74,24 +74,8 @@ func (a *App) uploadAttachment(w http.ResponseWriter, r *http.Request) {
 		sourceType = "form"
 	}
 	sourceID, _ := strconv.ParseInt(r.FormValue("source_id"), 10, 64)
-	uploadRoot := a.cfg.UploadDir
-	if uploadRoot == "" {
-		uploadRoot = "uploads"
-	}
-	dir := filepath.Join(uploadRoot, fmt.Sprintf("%d", requestID))
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
 	name := fmt.Sprintf("%d_%s", time.Now().UnixNano(), sanitizeFilename(header.Filename))
-	dstPath := filepath.Join(dir, name)
-	dst, err := os.Create(dstPath)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	defer dst.Close()
-	if _, err := io.Copy(dst, file); err != nil {
+	if err := a.saveUpload(file, requestID, name); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -107,17 +91,47 @@ func (a *App) uploadAttachment(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) downloadUpload(w http.ResponseWriter, r *http.Request) {
-	uploadRoot := a.cfg.UploadDir
-	if uploadRoot == "" {
-		uploadRoot = "uploads"
-	}
 	rel := strings.TrimPrefix(r.URL.Path, "/uploads/")
-	cleanRel := filepath.Clean(rel)
-	if cleanRel == "." || strings.HasPrefix(cleanRel, "..") {
-		writeError(w, http.StatusBadRequest, "invalid file path")
+	if err := a.serveUpload(w, r, rel); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	http.ServeFile(w, r, filepath.Join(uploadRoot, cleanRel))
+}
+
+func (a *App) localUploadRoot() string {
+	if a.cfg.UploadDir == "" {
+		return "uploads"
+	}
+	return a.cfg.UploadDir
+}
+
+func (a *App) saveUpload(src io.Reader, requestID int64, name string) error {
+	if a.cfg.UploadStorage == "sftp" {
+		return a.saveUploadSFTP(src, requestID, name)
+	}
+	dir := filepath.Join(a.localUploadRoot(), fmt.Sprintf("%d", requestID))
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+	dst, err := os.Create(filepath.Join(dir, name))
+	if err != nil {
+		return err
+	}
+	defer dst.Close()
+	_, err = io.Copy(dst, src)
+	return err
+}
+
+func (a *App) serveUpload(w http.ResponseWriter, r *http.Request, rel string) error {
+	if a.cfg.UploadStorage == "sftp" {
+		return a.serveUploadSFTP(w, r, rel)
+	}
+	cleanRel := filepath.Clean(rel)
+	if cleanRel == "." || strings.HasPrefix(cleanRel, "..") || filepath.IsAbs(cleanRel) {
+		return fmt.Errorf("invalid file path")
+	}
+	http.ServeFile(w, r, filepath.Join(a.localUploadRoot(), cleanRel))
+	return nil
 }
 
 func sanitizeFilename(name string) string {
