@@ -11,6 +11,7 @@ type Config struct {
 	Port      string
 	MySQLDSN  string
 	JWTSecret string
+	UploadDir string
 }
 
 func Load() Config {
@@ -19,6 +20,7 @@ func Load() Config {
 		Port:      env("APP_PORT", "3000"),
 		MySQLDSN:  env("MYSQL_DSN", "root:password@tcp(127.0.0.1:3306)/rbac_request_engine?parseTime=true&multiStatements=true"),
 		JWTSecret: env("APP_JWT_SECRET", "dev-secret-change-me"),
+		UploadDir: env("UPLOAD_DIR", "uploads"),
 	}
 }
 

@@ -74,7 +74,11 @@ func (a *App) uploadAttachment(w http.ResponseWriter, r *http.Request) {
 		sourceType = "form"
 	}
 	sourceID, _ := strconv.ParseInt(r.FormValue("source_id"), 10, 64)
-	dir := filepath.Join("uploads", fmt.Sprintf("%d", requestID))
+	uploadRoot := a.cfg.UploadDir
+	if uploadRoot == "" {
+		uploadRoot = "uploads"
+	}
+	dir := filepath.Join(uploadRoot, fmt.Sprintf("%d", requestID))
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -103,8 +107,17 @@ func (a *App) uploadAttachment(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) downloadUpload(w http.ResponseWriter, r *http.Request) {
+	uploadRoot := a.cfg.UploadDir
+	if uploadRoot == "" {
+		uploadRoot = "uploads"
+	}
 	rel := strings.TrimPrefix(r.URL.Path, "/uploads/")
-	http.ServeFile(w, r, filepath.Join("uploads", filepath.Clean(rel)))
+	cleanRel := filepath.Clean(rel)
+	if cleanRel == "." || strings.HasPrefix(cleanRel, "..") {
+		writeError(w, http.StatusBadRequest, "invalid file path")
+		return
+	}
+	http.ServeFile(w, r, filepath.Join(uploadRoot, cleanRel))
 }
 
 func sanitizeFilename(name string) string {

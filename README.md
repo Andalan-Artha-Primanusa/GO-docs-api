@@ -19,6 +19,20 @@ Copy-Item .env.example .env
 
 3. Sesuaikan `MYSQL_DSN` dan `APP_JWT_SECRET`.
 
+Untuk menyimpan hasil upload ke NAS, connect/mount NAS terlebih dahulu lewat SMB/WebDAV/FTP client di Windows, lalu arahkan `UPLOAD_DIR` ke folder tersebut:
+
+```env
+UPLOAD_DIR=Z:\AndalanTicketUploads
+```
+
+Atau langsung memakai UNC path SMB jika proses Go punya akses ke share:
+
+```env
+UPLOAD_DIR=\\192.168.1.10\TicketShare\Uploads
+```
+
+URL file di API tetap memakai format `/uploads/{request_id}/{nama_file}`, tetapi file fisiknya tersimpan di folder NAS.
+
 4. Install dependensi dan jalankan migrasi:
 
 ```powershell
