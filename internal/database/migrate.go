@@ -33,11 +33,46 @@ func migrateExisting(db *sql.DB) error {
 			return err
 		}
 	}
+	if ok, err := columnExists(db, "requests", "deleted_at"); err != nil {
+		return err
+	} else if !ok {
+		if _, err := db.Exec(`ALTER TABLE requests ADD COLUMN deleted_at TIMESTAMP NULL AFTER updated_at`); err != nil {
+			return err
+		}
+	}
+	if ok, err := columnExists(db, "approvals", "due_at"); err != nil {
+		return err
+	} else if !ok {
+		if _, err := db.Exec(`ALTER TABLE approvals ADD COLUMN due_at TIMESTAMP NULL AFTER acted_at`); err != nil {
+			return err
+		}
+	}
 	if ok, err := columnExists(db, "request_type_pic", "stage_number"); err != nil {
 		return err
 	} else if !ok {
 		if _, err := db.Exec(`ALTER TABLE request_type_pic ADD COLUMN stage_number INT NOT NULL DEFAULT 1 AFTER user_id`); err != nil {
 			return err
+		}
+	}
+	for _, migration := range []struct {
+		table string
+		col   string
+		sql   string
+	}{
+		{"request_comments", "deleted_at", `ALTER TABLE request_comments ADD COLUMN deleted_at TIMESTAMP NULL AFTER created_at`},
+		{"request_results", "deleted_at", `ALTER TABLE request_results ADD COLUMN deleted_at TIMESTAMP NULL AFTER created_at`},
+		{"attachments", "file_name", `ALTER TABLE attachments ADD COLUMN file_name VARCHAR(255) NULL AFTER file_url`},
+		{"attachments", "mime_type", `ALTER TABLE attachments ADD COLUMN mime_type VARCHAR(120) NULL AFTER file_name`},
+		{"attachments", "file_size", `ALTER TABLE attachments ADD COLUMN file_size BIGINT NULL AFTER mime_type`},
+		{"attachments", "uploaded_by_user_id", `ALTER TABLE attachments ADD COLUMN uploaded_by_user_id BIGINT NULL AFTER file_size`},
+		{"attachments", "deleted_at", `ALTER TABLE attachments ADD COLUMN deleted_at TIMESTAMP NULL AFTER uploaded_at`},
+	} {
+		if ok, err := columnExists(db, migration.table, migration.col); err != nil {
+			return err
+		} else if !ok {
+			if _, err := db.Exec(migration.sql); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -154,6 +189,7 @@ CREATE TABLE IF NOT EXISTS requests (
   due_at TIMESTAMP NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP NULL,
   FOREIGN KEY (request_type_id) REFERENCES request_types(id),
   FOREIGN KEY (user_id) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -174,6 +210,7 @@ CREATE TABLE IF NOT EXISTS approvals (
   action ENUM('pending','approve','reject') NOT NULL DEFAULT 'pending',
   note TEXT NULL,
   acted_at TIMESTAMP NULL,
+  due_at TIMESTAMP NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY uq_request_approval_level (request_id, level),
   FOREIGN KEY (request_id) REFERENCES requests(id) ON DELETE CASCADE,
@@ -198,6 +235,7 @@ CREATE TABLE IF NOT EXISTS request_comments (
   user_id BIGINT NOT NULL,
   message TEXT NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP NULL,
   FOREIGN KEY (request_id) REFERENCES requests(id) ON DELETE CASCADE,
   FOREIGN KEY (user_id) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -208,6 +246,7 @@ CREATE TABLE IF NOT EXISTS request_results (
   result_text TEXT NOT NULL,
   given_by_user_id BIGINT NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP NULL,
   FOREIGN KEY (request_id) REFERENCES requests(id) ON DELETE CASCADE,
   FOREIGN KEY (given_by_user_id) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -218,7 +257,12 @@ CREATE TABLE IF NOT EXISTS attachments (
   source_type ENUM('form','status_log','comment','result') NOT NULL,
   source_id BIGINT NULL,
   file_url VARCHAR(500) NOT NULL,
+  file_name VARCHAR(255) NULL,
+  mime_type VARCHAR(120) NULL,
+  file_size BIGINT NULL,
+  uploaded_by_user_id BIGINT NULL,
   uploaded_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP NULL,
   FOREIGN KEY (request_id) REFERENCES requests(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

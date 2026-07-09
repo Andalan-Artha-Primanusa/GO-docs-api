@@ -101,6 +101,18 @@ Default seed membuat akun:
 - `hr@example.com` / `password123`
 - `manager@example.com` / `password123`
 - `staff@example.com` / `password123`
+- `ratna.puspita@andalan.local` / `password123` (Director)
+- `budi.santoso@andalan.local` / `password123` (Manager Operations)
+- `andi.pratama@andalan.local` / `password123` (IT Manager/PIC)
+- `siti.rahma@andalan.local` / `password123` (Finance)
+- `dinda.lestari@andalan.local` / `password123` (HR)
+- `raka.wijaya@andalan.local` / `password123` (PIC IT)
+- `maya.kartika@andalan.local` / `password123` (PIC GA)
+- `fajar.nugroho@andalan.local` / `password123` (PIC Procurement)
+- `lina.marlina@andalan.local` / `password123` (Staff Sales)
+- `arif.setiawan@andalan.local` / `password123` (Staff Operations)
+- `wulan.permata@andalan.local` / `password123` (Staff Warehouse)
+- `nabila.putri@andalan.local` / `password123` (Staff Finance)
 
 Semua akun login lewat endpoint yang sama: `POST /api/auth/login`. Yang membedakan akses adalah role, departemen, dan lokasi site milik user.
 

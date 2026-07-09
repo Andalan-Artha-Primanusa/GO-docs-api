@@ -7,7 +7,7 @@ import (
 
 func (a *App) dashboard(w http.ResponseWriter, r *http.Request) {
 	userID := currentUserID(r)
-	mine, err := a.countByStatus(`WHERE user_id = ?`, userID)
+	mine, err := a.countByStatus(`WHERE user_id = ? AND deleted_at IS NULL`, userID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -58,7 +58,7 @@ func (a *App) countAssignedByStatus(userID int64) ([]map[string]any, error) {
 		SELECT req.overall_status, COUNT(*) total
 		FROM requests req
 		JOIN request_type_pic rtp ON rtp.request_type_id = req.request_type_id
-		WHERE rtp.user_id = ?
+		WHERE rtp.user_id = ? AND req.deleted_at IS NULL
 		GROUP BY req.overall_status`, userID)
 	if err != nil {
 		return nil, err
@@ -82,7 +82,7 @@ func (a *App) countAssignedByType(userID int64) ([]map[string]any, error) {
 		FROM requests req
 		JOIN request_types rt ON rt.id = req.request_type_id
 		JOIN request_type_pic rtp ON rtp.request_type_id = req.request_type_id
-		WHERE rtp.user_id = ?
+		WHERE rtp.user_id = ? AND req.deleted_at IS NULL
 		GROUP BY rt.id, rt.name`, userID)
 	if err != nil {
 		return nil, err
@@ -130,6 +130,20 @@ func (a *App) readNotification(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_, err = a.db.Exec(`UPDATE notifications SET is_read = TRUE WHERE id = ? AND user_id = ?`, id, currentUserID(r))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+func (a *App) readRequestNotifications(w http.ResponseWriter, r *http.Request) {
+	id, err := pathID(r)
+	if err != nil {
+		writeErrorCode(w, http.StatusBadRequest, "INVALID_ID", "invalid id")
+		return
+	}
+	_, err = a.db.Exec(`UPDATE notifications SET is_read = TRUE WHERE request_id = ? AND user_id = ?`, id, currentUserID(r))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

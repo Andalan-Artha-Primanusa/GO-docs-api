@@ -9,6 +9,7 @@ type apiResponse struct {
 	StatusCode int    `json:"statusCode"`
 	Success    bool   `json:"success"`
 	Message    string `json:"message"`
+	Code       string `json:"code,omitempty"`
 	Data       any    `json:"data,omitempty"`
 	Error      any    `json:"error,omitempty"`
 }
@@ -25,12 +26,17 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 }
 
 func writeError(w http.ResponseWriter, status int, message string) {
+	writeErrorCode(w, status, "", message)
+}
+
+func writeErrorCode(w http.ResponseWriter, status int, code, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(apiResponse{
 		StatusCode: status,
 		Success:    false,
 		Message:    statusMessage(status),
+		Code:       code,
 		Error:      message,
 	})
 }

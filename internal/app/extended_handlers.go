@@ -1,6 +1,7 @@
 package app
 
 import (
+	"database/sql"
 	"fmt"
 	"io"
 	"log"
@@ -24,10 +25,10 @@ func (a *App) approvalHistory(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) listApprovalRows(w http.ResponseWriter, where string, arg any) {
 	rows, err := a.db.Query(`
-		SELECT ap.id, ap.request_id, req.ticket_number, rt.name, ap.level, ap.action, ap.note, ap.acted_at, ap.created_at
+		SELECT ap.id, ap.request_id, req.ticket_number, rt.name, ap.level, ap.action, ap.note, ap.acted_at, ap.due_at, ap.created_at
 		FROM approvals ap
 		JOIN requests req ON req.id = ap.request_id
-		JOIN request_types rt ON rt.id = req.request_type_id `+where+`
+		JOIN request_types rt ON rt.id = req.request_type_id `+where+` AND req.deleted_at IS NULL
 		ORDER BY ap.id DESC`, arg)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -40,12 +41,12 @@ func (a *App) listApprovalRows(w http.ResponseWriter, where string, arg any) {
 		var ticket, typ, action string
 		var level int
 		var note *string
-		var actedAt, createdAt any
-		if err := rows.Scan(&id, &requestID, &ticket, &typ, &level, &action, &note, &actedAt, &createdAt); err != nil {
+		var actedAt, dueAt, createdAt any
+		if err := rows.Scan(&id, &requestID, &ticket, &typ, &level, &action, &note, &actedAt, &dueAt, &createdAt); err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		out = append(out, map[string]any{"id": id, "request_id": requestID, "ticket_number": ticket, "request_type_name": typ, "level": level, "action": action, "note": note, "acted_at": actedAt, "created_at": createdAt})
+		out = append(out, map[string]any{"id": id, "request_id": requestID, "ticket_number": ticket, "request_type_name": typ, "level": level, "action": action, "note": note, "acted_at": actedAt, "due_at": dueAt, "created_at": createdAt})
 	}
 	writeJSON(w, http.StatusOK, out)
 }
@@ -88,14 +89,73 @@ func (a *App) uploadAttachment(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Printf("upload saved request_id=%d folder=%s name=%s storage=%s", requestID, ownerFolder, name, a.cfg.UploadStorage)
 	fileURL := "/uploads/" + fmt.Sprintf("%s/%s", ownerFolder, name)
-	res, err := a.db.Exec(`INSERT INTO attachments (request_id, source_type, source_id, file_url) VALUES (?, ?, ?, ?)`, requestID, sourceType, nullableID(sourceID), fileURL)
+	res, err := a.db.Exec(`INSERT INTO attachments (request_id, source_type, source_id, file_url, file_name, mime_type, file_size, uploaded_by_user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		requestID, sourceType, nullableID(sourceID), fileURL, header.Filename, header.Header.Get("Content-Type"), header.Size, currentUserID(r))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	id, _ := res.LastInsertId()
 	a.audit(currentUserID(r), "upload_attachment", "attachment", id, map[string]any{"request_id": requestID, "file_url": fileURL})
-	writeJSON(w, http.StatusCreated, map[string]any{"id": id, "file_url": fileURL})
+	writeJSON(w, http.StatusCreated, map[string]any{"id": id, "file_url": fileURL, "file_name": header.Filename, "mime_type": header.Header.Get("Content-Type"), "file_size": header.Size})
+}
+
+func (a *App) deleteAttachment(w http.ResponseWriter, r *http.Request) {
+	id, err := pathID(r)
+	if err != nil {
+		writeErrorCode(w, http.StatusBadRequest, "INVALID_ID", "invalid id")
+		return
+	}
+	var requestID, uploaderID int64
+	if err := a.db.QueryRow(`SELECT request_id, COALESCE(uploaded_by_user_id, 0) FROM attachments WHERE id = ? AND deleted_at IS NULL`, id).Scan(&requestID, &uploaderID); err != nil {
+		if err == sql.ErrNoRows {
+			writeErrorCode(w, http.StatusNotFound, "ATTACHMENT_NOT_FOUND", "attachment not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	canViewAll, _ := a.hasPermission(currentUserID(r), "request.view_all")
+	if uploaderID != currentUserID(r) && !canViewAll {
+		writeErrorCode(w, http.StatusForbidden, "ATTACHMENT_FORBIDDEN", "cannot delete this attachment")
+		return
+	}
+	_, err = a.db.Exec(`UPDATE attachments SET deleted_at = NOW() WHERE id = ? AND deleted_at IS NULL`, id)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	a.audit(currentUserID(r), "soft_delete_attachment", "attachment", id, map[string]any{"request_id": requestID})
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+func (a *App) deleteResult(w http.ResponseWriter, r *http.Request) {
+	id, err := pathID(r)
+	if err != nil {
+		writeErrorCode(w, http.StatusBadRequest, "INVALID_ID", "invalid id")
+		return
+	}
+	var requestID, giverID int64
+	if err := a.db.QueryRow(`SELECT request_id, given_by_user_id FROM request_results WHERE id = ? AND deleted_at IS NULL`, id).Scan(&requestID, &giverID); err != nil {
+		if err == sql.ErrNoRows {
+			writeErrorCode(w, http.StatusNotFound, "RESULT_NOT_FOUND", "result not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	canViewAll, _ := a.hasPermission(currentUserID(r), "request.view_all")
+	if giverID != currentUserID(r) && !canViewAll {
+		writeErrorCode(w, http.StatusForbidden, "RESULT_FORBIDDEN", "cannot delete this result")
+		return
+	}
+	_, err = a.db.Exec(`UPDATE request_results SET deleted_at = NOW() WHERE id = ? AND deleted_at IS NULL`, id)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	a.audit(currentUserID(r), "soft_delete_result", "request_result", id, map[string]any{"request_id": requestID})
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
 func (a *App) downloadUpload(w http.ResponseWriter, r *http.Request) {
@@ -202,6 +262,10 @@ func (a *App) auditLogs(w http.ResponseWriter, r *http.Request) {
 		query += ` AND al.entity_type = ?`
 		args = append(args, v)
 	}
+	if v := r.URL.Query().Get("entity_id"); v != "" {
+		query += ` AND al.entity_id = ?`
+		args = append(args, v)
+	}
 	query += ` ORDER BY al.id DESC LIMIT 200`
 	rows, err := a.db.Query(query, args...)
 	if err != nil {
@@ -222,6 +286,41 @@ func (a *App) auditLogs(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		out = append(out, map[string]any{"id": id, "actor_user_id": actorID, "actor_name": actorName, "action": action, "entity_type": entityType, "entity_id": entityID, "metadata": string(metadata), "created_at": createdAt})
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+func (a *App) requestAuditTimeline(w http.ResponseWriter, r *http.Request) {
+	id, err := pathID(r)
+	if err != nil {
+		writeErrorCode(w, http.StatusBadRequest, "INVALID_ID", "invalid id")
+		return
+	}
+	rows, err := a.db.Query(`
+		SELECT al.id, al.actor_user_id, u.name actor_name, al.action, al.entity_type, al.entity_id, al.metadata_json, al.created_at
+		FROM audit_logs al
+		LEFT JOIN users u ON u.id = al.actor_user_id
+		WHERE (al.entity_type = 'request' AND al.entity_id = ?)
+		   OR JSON_UNQUOTE(JSON_EXTRACT(al.metadata_json, '$.request_id')) = ?
+		ORDER BY al.id ASC`, id, id)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	defer rows.Close()
+	var out []map[string]any
+	for rows.Next() {
+		var logID int64
+		var actorID, entityID *int64
+		var actorName *string
+		var action, entityType string
+		var metadata []byte
+		var createdAt any
+		if err := rows.Scan(&logID, &actorID, &actorName, &action, &entityType, &entityID, &metadata, &createdAt); err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		out = append(out, map[string]any{"id": logID, "actor_user_id": actorID, "actor_name": actorName, "action": action, "entity_type": entityType, "entity_id": entityID, "metadata": string(metadata), "created_at": createdAt})
 	}
 	writeJSON(w, http.StatusOK, out)
 }
@@ -298,9 +397,9 @@ func (a *App) changePassword(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) adminDashboard(w http.ResponseWriter, r *http.Request) {
-	statusRows, _ := a.countByStatus(``, nil)
-	byType, _ := a.mapRows(`SELECT rt.name request_type_name, COUNT(*) total FROM requests req JOIN request_types rt ON rt.id = req.request_type_id GROUP BY rt.id, rt.name ORDER BY total DESC`, nil)
-	byDept, _ := a.mapRows(`SELECT COALESCE(d.name, '-') department, COUNT(*) total FROM requests req JOIN users u ON u.id = req.user_id LEFT JOIN departments d ON d.id = u.department_id GROUP BY department`, nil)
-	bySite, _ := a.mapRows(`SELECT COALESCE(sl.name, '-') site_location, COUNT(*) total FROM requests req JOIN users u ON u.id = req.user_id LEFT JOIN site_locations sl ON sl.id = u.site_location_id GROUP BY site_location`, nil)
+	statusRows, _ := a.countByStatus(`WHERE deleted_at IS NULL`, nil)
+	byType, _ := a.mapRows(`SELECT rt.name request_type_name, COUNT(*) total FROM requests req JOIN request_types rt ON rt.id = req.request_type_id WHERE req.deleted_at IS NULL GROUP BY rt.id, rt.name ORDER BY total DESC`, nil)
+	byDept, _ := a.mapRows(`SELECT COALESCE(d.name, '-') department, COUNT(*) total FROM requests req JOIN users u ON u.id = req.user_id LEFT JOIN departments d ON d.id = u.department_id WHERE req.deleted_at IS NULL GROUP BY department`, nil)
+	bySite, _ := a.mapRows(`SELECT COALESCE(sl.name, '-') site_location, COUNT(*) total FROM requests req JOIN users u ON u.id = req.user_id LEFT JOIN site_locations sl ON sl.id = u.site_location_id WHERE req.deleted_at IS NULL GROUP BY site_location`, nil)
 	writeJSON(w, http.StatusOK, map[string]any{"requests_by_status": statusRows, "requests_by_type": byType, "requests_by_department": byDept, "requests_by_site": bySite})
 }
