@@ -51,7 +51,7 @@ func seedRolesAndPermissions(db *sql.DB) error {
 	permissions := []string{
 		"user.manage", "role.manage", "request_type.manage", "request_type.assign_pic",
 		"request.create", "request.approve", "request.update_progress", "request.give_result",
-		"request.view_all",
+		"request.view_all", "master.manage",
 	}
 	for _, p := range permissions {
 		if _, err := db.Exec(`INSERT IGNORE INTO permissions (code, description) VALUES (?, ?)`, p, p); err != nil {
@@ -60,13 +60,16 @@ func seedRolesAndPermissions(db *sql.DB) error {
 	}
 
 	roles := map[string][]string{
-		"super_admin": {"user.manage", "role.manage", "request_type.manage", "request_type.assign_pic", "request.create", "request.approve", "request.update_progress", "request.give_result", "request.view_all"},
+		"super_admin": {"user.manage", "role.manage", "request_type.manage", "request_type.assign_pic", "request.create", "request.approve", "request.update_progress", "request.give_result", "request.view_all", "master.manage"},
+		"admin":       {"user.manage", "request_type.manage", "request_type.assign_pic", "request.create", "request.approve", "request.update_progress", "request.give_result", "request.view_all", "master.manage"},
 		"hr":          {"user.manage", "request.create", "request.approve", "request.view_all"},
+		"approver":    {"request.create", "request.approve"},
 		"manager":     {"request.create", "request.approve"},
 		"finance":     {"request.create", "request.approve", "request.view_all"},
 		"director":    {"request.create", "request.approve", "request.view_all"},
-		"pic":         {"request.update_progress", "request.give_result", "request.view_all"},
+		"pic":         {"request.create", "request.update_progress", "request.give_result"},
 		"staff":       {"request.create"},
+		"user":        {"request.create"},
 	}
 	for role, perms := range roles {
 		if _, err := db.Exec(`INSERT IGNORE INTO roles (name, description) VALUES (?, ?)`, role, role); err != nil {

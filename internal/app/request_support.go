@@ -137,6 +137,18 @@ func (a *App) notifyConversationUsers(requestID, senderID int64, typ, message st
 			seen[userID] = true
 		}
 	}
+	rows, err = a.db.Query(`SELECT DISTINCT approver_id FROM approvals WHERE request_id = ?`, requestID)
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var userID int64
+		if rows.Scan(&userID) == nil && !seen[userID] {
+			a.notify(userID, requestID, typ, message)
+			seen[userID] = true
+		}
+	}
 }
 
 func (a *App) buildRequestDetail(id int64) (map[string]any, error) {

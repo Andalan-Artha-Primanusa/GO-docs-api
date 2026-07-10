@@ -75,6 +75,18 @@ func migrateExisting(db *sql.DB) error {
 			}
 		}
 	}
+	if _, err := db.Exec(`
+		CREATE TABLE IF NOT EXISTS user_preferences (
+		  user_id BIGINT PRIMARY KEY,
+		  notify_in_app BOOLEAN NOT NULL DEFAULT TRUE,
+		  notify_email BOOLEAN NOT NULL DEFAULT FALSE,
+		  compact_sidebar BOOLEAN NOT NULL DEFAULT FALSE,
+		  theme VARCHAR(30) NOT NULL DEFAULT 'system',
+		  updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+		  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`); err != nil {
+		return err
+	}
 	return nil
 }
 

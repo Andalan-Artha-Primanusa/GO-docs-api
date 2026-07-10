@@ -96,6 +96,7 @@ func (a *App) uploadAttachment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id, _ := res.LastInsertId()
+	a.notifyConversationUsers(requestID, currentUserID(r), "attachment_uploaded", "Lampiran baru ditambahkan pada pengajuan")
 	a.audit(currentUserID(r), "upload_attachment", "attachment", id, map[string]any{"request_id": requestID, "file_url": fileURL})
 	writeJSON(w, http.StatusCreated, map[string]any{"id": id, "file_url": fileURL, "file_name": header.Filename, "mime_type": header.Header.Get("Content-Type"), "file_size": header.Size})
 }
@@ -125,6 +126,7 @@ func (a *App) deleteAttachment(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	a.notifyConversationUsers(requestID, currentUserID(r), "attachment_deleted", "Lampiran pada pengajuan dihapus")
 	a.audit(currentUserID(r), "soft_delete_attachment", "attachment", id, map[string]any{"request_id": requestID})
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
@@ -154,6 +156,7 @@ func (a *App) deleteResult(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	a.notifyConversationUsers(requestID, currentUserID(r), "result_deleted", "Hasil PIC pada pengajuan dihapus")
 	a.audit(currentUserID(r), "soft_delete_result", "request_result", id, map[string]any{"request_id": requestID})
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }

@@ -541,6 +541,7 @@ func (a *App) deleteRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.audit(userID, "soft_delete_request", "request", id, req)
+	a.notifyConversationUsers(id, userID, "request_deleted", "Pengajuan diarsipkan")
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
@@ -565,6 +566,7 @@ func (a *App) restoreRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.audit(currentUserID(r), "restore_request", "request", id, req)
+	a.notifyConversationUsers(id, currentUserID(r), "request_restored", "Pengajuan dipulihkan dari arsip")
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
@@ -617,7 +619,7 @@ func (a *App) approveRequest(w http.ResponseWriter, r *http.Request) {
 		writeErrorCode(w, http.StatusBadRequest, "REQUEST_NOT_APPROVABLE", "request is not waiting for approval")
 		return
 	}
-	var level int
+	var level, activeLevel int
 	var requesterID, requestTypeID int64
 	err = a.db.QueryRow(`
 		SELECT a.level, req.user_id, req.request_type_id
@@ -630,6 +632,14 @@ func (a *App) approveRequest(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if err := a.db.QueryRow(`SELECT MIN(level) FROM approvals WHERE request_id = ? AND action = 'pending'`, id).Scan(&activeLevel); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if level != activeLevel {
+		writeErrorCode(w, http.StatusForbidden, "APPROVAL_LEVEL_NOT_ACTIVE", "approval level sebelumnya belum selesai")
 		return
 	}
 	tx, _ := a.db.Begin()
@@ -791,6 +801,7 @@ func (a *App) movePICStage(w http.ResponseWriter, r *http.Request) {
 	}
 	_, _ = a.db.Exec(`INSERT INTO request_status_log (request_id, stage_number, status_text, updated_by_user_id, note) VALUES (?, ?, 'Pindah stage PIC', ?, ?)`,
 		id, req.StageNumber, currentUserID(r), req.Note)
+	a.notifyConversationUsers(id, currentUserID(r), "pic_stage_update", "Stage PIC pengajuan diperbarui")
 	a.audit(currentUserID(r), "move_pic_stage", "request", id, req)
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "stage_number": req.StageNumber})
 }

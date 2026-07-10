@@ -82,6 +82,94 @@ func (a *App) me(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, user)
 }
 
+func (a *App) updateMyProfile(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Name  string  `json:"name"`
+		Phone *string `json:"phone"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		writeErrorCode(w, http.StatusBadRequest, "INVALID_PAYLOAD", err.Error())
+		return
+	}
+	if req.Name == "" {
+		writeErrorCode(w, http.StatusBadRequest, "NAME_REQUIRED", "name is required")
+		return
+	}
+	if _, err := a.db.Exec(`UPDATE users SET name = ?, phone = ? WHERE id = ?`, req.Name, req.Phone, currentUserID(r)); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	a.audit(currentUserID(r), "update_my_profile", "user", currentUserID(r), req)
+	user, err := a.getUser(currentUserID(r))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, user)
+}
+
+func (a *App) myPreferences(w http.ResponseWriter, r *http.Request) {
+	prefs, err := a.ensurePreferences(currentUserID(r))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, prefs)
+}
+
+func (a *App) updateMyPreferences(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		NotifyInApp    bool   `json:"notify_in_app"`
+		NotifyEmail    bool   `json:"notify_email"`
+		CompactSidebar bool   `json:"compact_sidebar"`
+		Theme          string `json:"theme"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		writeErrorCode(w, http.StatusBadRequest, "INVALID_PAYLOAD", err.Error())
+		return
+	}
+	if req.Theme == "" {
+		req.Theme = "system"
+	}
+	if req.Theme != "system" && req.Theme != "light" && req.Theme != "dark" {
+		writeErrorCode(w, http.StatusBadRequest, "INVALID_THEME", "theme must be system, light, or dark")
+		return
+	}
+	_, err := a.db.Exec(`
+		INSERT INTO user_preferences (user_id, notify_in_app, notify_email, compact_sidebar, theme)
+		VALUES (?, ?, ?, ?, ?)
+		ON DUPLICATE KEY UPDATE notify_in_app = VALUES(notify_in_app), notify_email = VALUES(notify_email), compact_sidebar = VALUES(compact_sidebar), theme = VALUES(theme)`,
+		currentUserID(r), req.NotifyInApp, req.NotifyEmail, req.CompactSidebar, req.Theme)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	a.audit(currentUserID(r), "update_my_preferences", "user", currentUserID(r), req)
+	prefs, err := a.ensurePreferences(currentUserID(r))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, prefs)
+}
+
+func (a *App) ensurePreferences(userID int64) (map[string]any, error) {
+	_, _ = a.db.Exec(`INSERT IGNORE INTO user_preferences (user_id) VALUES (?)`, userID)
+	var notifyInApp, notifyEmail, compactSidebar bool
+	var theme string
+	err := a.db.QueryRow(`SELECT notify_in_app, notify_email, compact_sidebar, theme FROM user_preferences WHERE user_id = ?`, userID).
+		Scan(&notifyInApp, &notifyEmail, &compactSidebar, &theme)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{
+		"notify_in_app":   notifyInApp,
+		"notify_email":    notifyEmail,
+		"compact_sidebar": compactSidebar,
+		"theme":           theme,
+	}, nil
+}
+
 func (a *App) getUser(id int64) (User, error) {
 	var u User
 	err := a.db.QueryRow(`
